@@ -7,10 +7,14 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.*;
 import java.net.Socket;
+import java.net.SocketException;
+import java.util.Date;
 
 public class ChatClient extends Frame {
     Socket socket = null;
+    DataInputStream dis = null;
     DataOutputStream dos = null;
+    private boolean bConnected = false;
     TextField textField = new TextField();
     TextArea textArea = new TextArea();
 
@@ -37,6 +41,8 @@ public class ChatClient extends Frame {
         textField.addActionListener(new TFListener());
         setVisible(true);
         connect();
+
+        new Thread(new RecvThread()).start();
     }
 
     /**
@@ -47,6 +53,10 @@ public class ChatClient extends Frame {
             socket = new Socket("127.0.0.1", 8888);
             //初始化DataOutputStream
             dos = new DataOutputStream(socket.getOutputStream());
+            //初始化DataInputStream
+            dis = new DataInputStream(socket.getInputStream());
+            //连接成功，修改连接标志位
+            bConnected = true;
             //测试语句
             System.out.println("链接成功!");
         } catch (IOException e) {
@@ -67,21 +77,23 @@ public class ChatClient extends Frame {
             textArea.setText(str);
             textField.setText("");
             //网络发字符串
-            sendMessage(str);
+            try {
+                sendMessage(str);
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
         }
     }
 
     /**
      * 网络发字符串
      */
-    private void sendMessage(String s) {
-        try {
+    private void sendMessage(String s) throws IOException {
+
             dos.writeUTF(s);
             dos.flush();
             //dos.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+
     }
 
     /**
@@ -95,5 +107,30 @@ public class ChatClient extends Frame {
             e.printStackTrace();
         }
 
+    }
+
+    /**
+     * 接受网络消息
+     */
+    private class RecvThread implements Runnable{
+
+        @Override
+        public void run() {
+            while (bConnected){
+                try {
+
+                    String str = new Date() +": "+"  "+ dis.readUTF();
+
+                    System.out.println(str);
+                    textArea.setText('\n'+"  "+textArea.getText()+str+'\n');
+                } catch(SocketException e){
+                    System.out.println("退出了");
+                }catch (EOFException E){
+                    System.out.println("退出了，bye");
+                }catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 }
